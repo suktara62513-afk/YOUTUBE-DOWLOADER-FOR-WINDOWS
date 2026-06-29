@@ -3,20 +3,18 @@ param(
 )
 
 # ==============================================================================
-# Made by Tarek X ChatGPT
-# Terminal YouTube Downloader (Windows Native PowerShell Edition)
-# ==============================================================================
+# SUPER HUMAN YouTube Downloader - Windows Portable PowerShell Edition
+# ============================================================================
 
-# Enable UTF-8 Support in the Console for Unicode Borders/Glyphs
+Set-Location -Path $PSScriptRoot
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-# ANSI 256 / 24-bit RGB Colors
+# ANSI / RGB colors
 $esc = [char]27
 $C_GREEN = "$esc[38;5;46m"
 $C_CYAN = "$esc[38;5;51m"
 $C_BLUE = "$esc[38;5;39m"
 $C_PURPLE = "$esc[38;5;129m"
-$C_MAGENTA = "$esc[38;5;201m"
 $C_ORANGE = "$esc[38;5;208m"
 $C_WHITE = "$esc[38;5;255m"
 $C_GRAY = "$esc[38;5;244m"
@@ -25,32 +23,35 @@ $C_RED = "$esc[38;5;196m"
 $C_RESET = "$esc[0m"
 $C_BG_GREEN = "$esc[48;5;46m$esc[38;5;16m"
 
-# Ensure clean exit and restore cursor
 function Cleanup {
     [Console]::Write($C_RESET)
     [Console]::CursorVisible = $true
 }
 
-# Trap terminal exits/Ctrl+C
 $previousErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = "Stop"
 
-# Script-scope tools directory
 $toolsDir = Join-Path $PSScriptRoot "tools"
 
-# Helper: Escape a single argument for ProcessStartInfo.Arguments
-function Escape-Argument {
-    param([string]$arg)
-    if ($arg -match '[ "]') {
-        return '"' + ($arg -replace '"', '\"') + '"'
-    }
-    return $arg
-}
+function Download-File {
+    param(
+        [Parameter(Mandatory=$true)][string]$Url,
+        [Parameter(Mandatory=$true)][string]$Destination
+    )
 
-# Helper: Join an array of arguments into a single command-line string
-function Join-Arguments {
-    param([string[]]$argList)
-    return ($argList | ForEach-Object { Escape-Argument $_ }) -join ' '
+    try {
+        if (-not (Test-Path (Split-Path $Destination -Parent))) {
+            New-Item -ItemType Directory -Path (Split-Path $Destination -Parent) -Force | Out-Null
+        }
+        if (Test-Path $Destination) {
+            Remove-Item -Path $Destination -Force -ErrorAction SilentlyContinue
+        }
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls
+        Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing -ErrorAction Stop
+        return $true
+    } catch {
+        return $false
+    }
 }
 
 function Get-TerminalWidth {
@@ -154,7 +155,7 @@ function Wrap-And-DrawBoxLines {
                 $indent = " " * $labelLen
                 Draw-BoxLine "$indent$chunk"
             }
-            $start += $maxW
+            $start += $chunkLen
         }
     }
 }
@@ -195,7 +196,6 @@ function Show-Footer {
 function Show-StartupAnimation {
     Clear-Host
     [Console]::Write($C_CYAN)
-    
     $bannerLines = @(
         "╭──────────────────────────────────────────────────────────────╮",
         "│        ████████╗  █████╗  ██████╗  ███████╗ ██╗  ██╗         │",
@@ -209,370 +209,212 @@ function Show-StartupAnimation {
         "│                  MADE BY TAREK X ANTIGRAVITY                 │",
         "╰──────────────────────────────────────────────────────────────╯"
     )
-    
     foreach ($line in $bannerLines) {
         Print-Centered $line
         Start-Sleep -Milliseconds 30
     }
-    
     Write-Host ""
     Print-Centered "$C_WHITE[+] INITIALIZING SECURE CYBER-DOWNLINK...$C_RESET"
     Start-Sleep -Milliseconds 200
-    
-    Draw-BoxHeader "$C_GREENSYSTEM PORT DEPLOYMENT STATUS$C_RESET"
-    
-    $os_version = [Environment]::OSVersion.VersionString
-    $ps_version = $PSVersionTable.PSVersion.ToString()
-    
-    $toolsDir = Join-Path $PSScriptRoot "tools"
-    $ytdlp_ver = "Unknown"
-    if (Test-Path (Join-Path $toolsDir "yt-dlp.exe")) {
-        try {
-            $ytdlp_ver = (& (Join-Path $toolsDir "yt-dlp.exe") --version).Trim()
-        } catch {}
-    }
-    
-    $ffmpeg_ver = "Unknown"
-    if (Test-Path (Join-Path $toolsDir "ffmpeg.exe")) {
-        try {
-            $ffmpegOut = & (Join-Path $toolsDir "ffmpeg.exe") -version
-            if ($ffmpegOut -and $ffmpegOut.Count -gt 0) {
-                $ffmpeg_ver = ($ffmpegOut[0] -split " ")[2]
-            }
-        } catch {}
-    }
-    
-    Draw-BoxLine " Core Architecture: Windows x64 ($os_version)"
-    Draw-BoxLine " PowerShell Engine: v$ps_version"
-    Draw-BoxLine " Downloader Daemon: yt-dlp (v$ytdlp_ver)"
-    Draw-BoxLine " Encoder Protocol:  ffmpeg (v$ffmpeg_ver)"
+
+    Draw-BoxHeader "$C_GREEN SYSTEM DEPLOYMENT STATUS $C_RESET"
+    Draw-BoxLine " Core Architecture: Windows x64"
+    Draw-BoxLine " PowerShell Engine: v$($PSVersionTable.PSVersion)"
     Draw-BoxLine " System Timeframe:  $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
     Draw-BoxFooter
-    
     Write-Host ""
-    Print-Centered "$C_GREENSYSTEM DEPLOYED. PRESS ANY KEY TO DOCK PROTOCOL...$C_RESET"
-    [Console]::ReadKey($true) | Out-Null
+    Print-Centered "$C_GREEN DEPLOYMENT IN PROGRESS. PLEASE WAIT...$C_RESET"
+    Start-Sleep -Milliseconds 400
 }
 
 function Show-DepErrorScreen {
     param([string]$err)
     Clear-Host
     Show-HeaderBanner
-    Draw-BoxHeader "$C_RED✖ DEPLOYMENT FAILURE DETECTED$C_RESET"
-    Draw-BoxLine ""
-    Draw-BoxLine "      $C_RED╭─────────────────────────────────╮$C_RESET"
-    Draw-BoxLine "      $C_RED│        INSTALLATION FAIL        │$C_RESET"
-    Draw-BoxLine "      $C_RED│             [ ✖ ] FAIL          │$C_RESET"
-    Draw-BoxLine "      $C_RED╰─────────────────────────────────╯$C_RESET"
+    Draw-BoxHeader "$C_RED✖ DEPENDENCY ERROR$C_RESET"
     Draw-BoxLine ""
     Wrap-And-DrawBoxLines "Error Detail: " $err
-    Draw-BoxLine "Action Required: Choose Retry to scan again"
-    Draw-BoxLine "                 or Exit to terminate."
+    Draw-BoxLine ""
+    Draw-BoxLine "This tool will retry automatically when you press ENTER."
     Draw-BoxFooter
     Write-Host ""
-    Write-Host " Choose an option:"
-    Write-Host "  1) Retry scanning and installation"
-    Write-Host "  0) Exit"
-    Write-Host ""
+    Read-Host "Press ENTER to retry or close the window to exit"
+}
 
-    while ($true) {
-        $choice = Read-Host " Select option"
-        if ($choice -eq "0") {
-            Cleanup
-            exit 0
-        } elseif ($choice -eq "1") {
-            return
+function Install-YtDlp {
+    $destExe = Join-Path $toolsDir "yt-dlp.exe"
+    $url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+    return Download-File -Url $url -Destination $destExe
+}
+
+function Install-Ffmpeg {
+    $zipPath = Join-Path $toolsDir "ffmpeg.zip"
+    $tempExtractDir = Join-Path $toolsDir "ffmpeg_temp"
+    $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+
+    if (-not (Download-File -Url $url -Destination $zipPath)) {
+        return $false
+    }
+
+    if (Test-Path $tempExtractDir) {
+        Remove-Item -Path $tempExtractDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    try {
+        Expand-Archive -Path $zipPath -DestinationPath $tempExtractDir -Force
+        $ffmpegExe = Get-ChildItem -Path $tempExtractDir -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
+        $ffprobeExe = Get-ChildItem -Path $tempExtractDir -Recurse -Filter "ffprobe.exe" | Select-Object -First 1
+        if (-not $ffmpegExe -or -not $ffprobeExe) {
+            throw "ffmpeg binaries were not found inside the downloaded archive."
         }
+
+        Copy-Item -Path $ffmpegExe.FullName -Destination (Join-Path $toolsDir "ffmpeg.exe") -Force
+        Copy-Item -Path $ffprobeExe.FullName -Destination (Join-Path $toolsDir "ffprobe.exe") -Force
+        return $true
+    } catch {
+        return $false
+    } finally {
+        if (Test-Path $zipPath) { Remove-Item -Path $zipPath -Force -ErrorAction SilentlyContinue }
+        if (Test-Path $tempExtractDir) { Remove-Item -Path $tempExtractDir -Recurse -Force -ErrorAction SilentlyContinue }
     }
 }
 
 function Check-Dependencies {
-    $toolsDir = Join-Path $PSScriptRoot "tools"
-    $ytdlpExists = Test-Path (Join-Path $toolsDir "yt-dlp.exe")
-    $ffmpegExists = Test-Path (Join-Path $toolsDir "ffmpeg.exe")
-
-    $ytdlpStatus = if ($ytdlpExists) { "[  $C_GREEN✓ FOUND$C_RESET  ]" } else { "[ $C_RED✗ MISSING$C_RESET ]" }
-    $ffmpegStatus = if ($ffmpegExists) { "[  $C_GREEN✓ FOUND$C_RESET  ]" } else { "[ $C_RED✗ MISSING$C_RESET ]" }
-
-    if ($ytdlpExists -and $ffmpegExists) {
-        return $true
-    }
-
-    Clear-Host
-    Show-HeaderBanner
-    Draw-BoxHeader "$C_CYANDEPENDENCY SCANNER$C_RESET"
-    Draw-BoxLine " The system requires the following protocols:"
-    Draw-BoxLine ""
-    Draw-BoxLine "  yt-dlp:    $ytdlpStatus"
-    Draw-BoxLine "  ffmpeg:    $ffmpegStatus"
-    Draw-BoxLine ""
-    Draw-BoxFooter
-    Write-Host ""
-
-    Draw-BoxHeader "$C_YELLOWMISSING DEPENDENCIES DETECTED$C_RESET"
-    Draw-BoxLine " The missing packages will be downloaded and"
-    Draw-BoxLine " installed automatically into the tools/ folder."
-    Draw-BoxFooter
-    Write-Host ""
-    Write-Host " Install missing packages now?"
-    Write-Host "  1) Yes"
-    Write-Host "  0) Exit"
-    Write-Host ""
-
-    while ($true) {
-        $choice = Read-Host " Select option [0-1]"
-        if ($choice -eq "0") {
-            Cleanup
-            exit 0
-        } elseif ($choice -eq "1") {
-            break
-        }
-    }
-
-    Clear-Host
-    Show-HeaderBanner
-    Draw-BoxHeader "$C_CYANINSTALLATION PROTOCOLS ACTIVE$C_RESET"
-    Draw-BoxLine " Deploying missing dependencies..."
-    Draw-BoxLine ""
-
-    $totalSteps = 0
-    if (-not $ytdlpExists) { $totalSteps++ }
-    if (-not $ffmpegExists) { $totalSteps++ }
-    $currentStep = 1
+    $ytdlpExec = Join-Path $toolsDir "yt-dlp.exe"
+    $ffmpegExec = Join-Path $toolsDir "ffmpeg.exe"
+    $ffprobeExec = Join-Path $toolsDir "ffprobe.exe"
 
     if (-not (Test-Path $toolsDir)) {
         New-Item -ItemType Directory -Path $toolsDir -Force | Out-Null
     }
 
-    $oldProgress = $ProgressPreference
-    $global:ProgressPreference = 'SilentlyContinue'
+    $ytdlpExists = Test-Path $ytdlpExec
+    $ffmpegExists = Test-Path $ffmpegExec
+    $ffprobeExists = Test-Path $ffprobeExec
 
-    if (-not $ytdlpExists) {
-        Draw-BoxLine "  [$currentStep/$totalSteps] Downloading yt-dlp.exe..."
-        Draw-BoxFooter
-        Write-Host ""
-
-        try {
-            $ytdlpUrl = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
-            Invoke-WebRequest -Uri $ytdlpUrl -OutFile (Join-Path $toolsDir "yt-dlp.exe")
-            $currentStep++
-            Clear-Host
-            Show-HeaderBanner
-            Draw-BoxHeader "$C_CYANINSTALLATION PROTOCOLS ACTIVE$C_RESET"
-            Draw-BoxLine " Deploying missing dependencies..."
-            Draw-BoxLine ""
-            Draw-BoxLine "  ✔ yt-dlp installation complete."
-        } catch {
-            $global:ProgressPreference = $oldProgress
-            Show-DepErrorScreen "Failed to download yt-dlp: $_"
-            return $false
-        }
+    if ($ytdlpExists -and $ffmpegExists -and $ffprobeExists) {
+        return $true
     }
 
-    if (-not $ffmpegExists) {
-        Draw-BoxLine "  [$currentStep/$totalSteps] Downloading ffmpeg.exe..."
-        Draw-BoxFooter
-        Write-Host ""
-
-        try {
-            $ffmpegUrl = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-            $zipPath = Join-Path $toolsDir "ffmpeg.zip"
-            $tempExtractDir = Join-Path $toolsDir "ffmpeg_temp"
-
-            Invoke-WebRequest -Uri $ffmpegUrl -OutFile $zipPath
-
-            if (Test-Path $tempExtractDir) {
-                Remove-Item -Path $tempExtractDir -Recurse -Force
-            }
-
-            Expand-Archive -Path $zipPath -DestinationPath $tempExtractDir -Force
-
-            $ffmpegExe = Get-ChildItem -Path $tempExtractDir -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
-            if ($ffmpegExe) {
-                Copy-Item -Path $ffmpegExe.FullName -Destination (Join-Path $toolsDir "ffmpeg.exe") -Force
-            } else {
-                throw "ffmpeg.exe not found in zip package."
-            }
-
-            $ffprobeExe = Get-ChildItem -Path $tempExtractDir -Recurse -Filter "ffprobe.exe" | Select-Object -First 1
-            if ($ffprobeExe) {
-                Copy-Item -Path $ffprobeExe.FullName -Destination (Join-Path $toolsDir "ffprobe.exe") -Force
-            }
-
-            Remove-Item -Path $zipPath -Force
-            Remove-Item -Path $tempExtractDir -Recurse -Force
-
-            Clear-Host
-            Show-HeaderBanner
-            Draw-BoxHeader "$C_CYANINSTALLATION PROTOCOLS ACTIVE$C_RESET"
-            Draw-BoxLine " Deploying missing dependencies..."
-            Draw-BoxLine ""
-            if ($ytdlpExists) {
-                Draw-BoxLine "  ✔ yt-dlp installation complete."
-            }
-            Draw-BoxLine "  ✔ ffmpeg installation complete."
-        } catch {
-            $global:ProgressPreference = $oldProgress
-            if (Test-Path $zipPath) { Remove-Item -Path $zipPath -Force }
-            if (Test-Path $tempExtractDir) { Remove-Item -Path $tempExtractDir -Recurse -Force }
-            Show-DepErrorScreen "Failed to download/install ffmpeg: $_"
-            return $false
-        }
-    }
-
-    $global:ProgressPreference = $oldProgress
-    Draw-BoxLine ""
-    Draw-BoxLine " All dependencies installed successfully."
-    Draw-BoxLine " Restarting Downloader..."
+    Clear-Host
+    Show-HeaderBanner
+    Draw-BoxHeader "$C_YELLOWAUTOMATED DEPENDENCY INSTALLATION$C_RESET"
+    Draw-BoxLine " The required binaries are missing or incomplete."
+    Draw-BoxLine " Downloading and provisioning them now..."
     Draw-BoxFooter
     Write-Host ""
-    Start-Sleep -Seconds 1.5
+
+    if (-not $ytdlpExists) {
+        Draw-BoxLine "  • Installing yt-dlp..."
+        if (-not (Install-YtDlp)) {
+            Show-DepErrorScreen "Unable to download yt-dlp.exe. Check network and retry."
+            return $false
+        }
+        Draw-BoxLine "  ✔ yt-dlp ready."
+    }
+
+    if (-not $ffmpegExists -or -not $ffprobeExists) {
+        Draw-BoxLine "  • Installing ffmpeg / ffprobe..."
+        if (-not (Install-Ffmpeg)) {
+            Show-DepErrorScreen "Unable to download and install ffmpeg. Check network and retry."
+            return $false
+        }
+        Draw-BoxLine "  ✔ ffmpeg and ffprobe ready."
+    }
+
+    Draw-BoxLine " All required dependencies are now available."
+    Draw-BoxFooter
+    Start-Sleep -Milliseconds 700
     return $true
 }
 
-function Check-For-YtdlpUpdates {
-    $toolsDir = Join-Path $PSScriptRoot "tools"
-    if (-not (Test-Path (Join-Path $toolsDir "yt-dlp.exe"))) {
-        return
+function Format-Duration {
+    param([int]$seconds)
+    if ($seconds -lt 0) { return "Unknown" }
+    $ts = [TimeSpan]::FromSeconds($seconds)
+    if ($ts.Hours -gt 0) {
+        return $ts.ToString("h\:mm\:ss")
+    }
+    return $ts.ToString("m\:ss")
+}
+
+function Get-VideoMetadata {
+    param([string]$url)
+
+    $jsonArgs = @(
+        "--dump-single-json",
+        "--no-warnings",
+        "--no-playlist",
+        "--skip-download",
+        "--restrict-filenames",
+        $url
+    )
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = Join-Path $toolsDir "yt-dlp.exe"
+    $psi.Arguments = ($jsonArgs | ForEach-Object { if ($_ -match ' ') { '"' + $_ + '"' } else { $_ } }) -join ' '
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $psi
+    $process.Start() | Out-Null
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+
+    if ($process.ExitCode -ne 0 -or -not $stdout) {
+        $err = if ($stderr) { $stderr.Trim() } else { "Unable to fetch video metadata." }
+        return @{ Success = $false; Error = $err }
     }
 
-    $latestVer = ""
-    $job = Start-Job -ScriptBlock {
-        try {
-            $resp = Invoke-RestMethod -Uri "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest" -TimeoutSec 3
-            return $resp.tag_name
-        } catch {
-            return ""
-        }
-    }
-
-    $check_cnt = 0
-    [Console]::CursorVisible = $false
-    while ($job.State -eq "Running") {
-        $dots = "." * (($check_cnt % 3) + 1)
-        $dotsPadding = " " * (3 - $dots.Length)
-        [Console]::Write("$C_CYAN Checking for yt-dlp updates$dots$dotsPadding$C_RESET`r")
-        $check_cnt++
-        Start-Sleep -Milliseconds 150
-    }
-    [Console]::Write(" " * 40 + "`r")
-    [Console]::CursorVisible = $true
-
-    $latestVer = Receive-Job -Job $job
-    Remove-Job -Job $job
-
-    if (-not $latestVer) { return }
-
-    $latestVer = $latestVer -replace 'v', ''
-    
-    $currentVer = ""
     try {
-        $currentVer = (& (Join-Path $toolsDir "yt-dlp.exe") --version).Trim()
-    } catch { return }
+        $meta = $stdout | ConvertFrom-Json
+    } catch {
+        return @{ Success = $false; Error = "Invalid metadata response from yt-dlp." }
+    }
 
-    if ($latestVer -ne $currentVer) {
-        Clear-Host
-        Show-HeaderBanner
-        Draw-BoxHeader "$C_CYANSOFTWARE UPDATE PROTOCOL$C_RESET"
-        Draw-BoxLine " A new yt-dlp version is available."
-        Draw-BoxLine ""
-        Draw-BoxLine "  Installed version: v$currentVer"
-        Draw-BoxLine "  Latest release:    v$latestVer"
-        Draw-BoxLine ""
-        Draw-BoxFooter
-        Write-Host ""
-        Write-Host " Update yt-dlp now?"
-        Write-Host "  1) Yes (Recommended)"
-        Write-Host "  2) Skip"
-        Write-Host ""
-
-        while ($true) {
-            $choice = Read-Host " Select option [1-2]"
-            if ($choice -eq "1" -or $choice -eq "2") {
-                break
-            }
+    $heightList = @()
+    foreach ($format in $meta.formats) {
+        if ($null -ne $format.height) {
+            $heightList += [int]$format.height
         }
+    }
+    $heightList = $heightList | Sort-Object -Unique -Descending
 
-        if ($choice -eq "2") { return }
-
-        Clear-Host
-        Show-HeaderBanner
-        Draw-BoxHeader "$C_CYANUPGRADING YT-DLP DAEMON$C_RESET"
-        Draw-BoxLine " Running upgrade protocols..."
-        Draw-BoxFooter
-        Write-Host ""
-
-        $updateJob = Start-Job -ScriptBlock {
-            param($exe)
-            try {
-                $out = & $exe -U
-                return $out
-            } catch {
-                return "Error: $_"
-            }
-        } -ArgumentList (Join-Path $toolsDir "yt-dlp.exe")
-
-        $spinChars = @('▖', '▘', '▝', '▗')
-        $i = 0
-        [Console]::CursorVisible = $false
-        while ($updateJob.State -eq "Running") {
-            $char = $spinChars[$i % $spinChars.Length]
-            [Console]::Write("$C_CYAN [$char] Upgrading yt-dlp mainframe...$C_RESET`r")
-            Start-Sleep -Milliseconds 80
-            $i++
-        }
-        [Console]::Write(" " * 45 + "`r")
-        [Console]::CursorVisible = $true
-
-        $result = Receive-Job -Job $updateJob
-        Remove-Job -Job $updateJob
-
-        if ($result -match "Error") {
-            Show-DepErrorScreen "Upgrade failed: $result"
-            return
-        }
-
-        $newVer = "Unknown"
-        try {
-            $newVer = (& (Join-Path $toolsDir "yt-dlp.exe") --version).Trim()
-        } catch {}
-
-        Clear-Host
-        Show-HeaderBanner
-        Draw-BoxHeader "$C_GREEN✔ UPGRADE COMPLETE$C_RESET"
-        Draw-BoxLine " yt-dlp successfully updated to v$newVer."
-        Draw-BoxLine " Resuming main protocols..."
-        Draw-BoxFooter
-        Write-Host ""
-        Start-Sleep -Seconds 2
+    return @{
+        Success = $true
+        Title = $meta.title
+        Uploader = $meta.uploader
+        Duration = Format-Duration -seconds $meta.duration
+        Views = $meta.view_count
+        UploadDate = $meta.upload_date
+        Thumbnail = $meta.thumbnail
+        Resolution = if ($meta.height) { "$($meta.height)p" } else { "Unknown" }
+        HeightList = $heightList
     }
 }
 
 function Draw-MenuState {
     param([int]$selected, [array]$heights, [int]$total)
-    
     if ($global:MENU_DRAWN) {
         [Console]::Write("$esc[$((4 + $total))A")
     }
     $global:MENU_DRAWN = $true
 
     Draw-BoxHeader "$C_CYANAVAILABLE RESOLUTIONS$C_RESET"
-
     for ($idx = 0; $idx -lt $total; $idx++) {
-        $line_content = ""
         if ($idx -eq ($total - 1)) {
             $line_content = " 0) Cancel"
         } elseif ($idx -eq ($total - 2)) {
-            $line_content = " $( $idx + 1 )) Best Audio (MP3)"
+            $line_content = " $($idx + 1)) Best Audio (MP3)"
         } else {
             $h = $heights[$idx]
             $label = "${h}p"
-            if ($h -eq 2160) {
-                $label = "2160p (4K)"
-            } elseif ($h -eq 1440) {
-                $label = "1440p"
-            }
-            $line_content = " $( $idx + 1 )) $label"
+            if ($h -eq 2160) { $label = "2160p (4K)" }
+            elseif ($h -eq 1440) { $label = "1440p" }
+            $line_content = " $($idx + 1)) $label"
         }
 
         if ($idx -eq $selected) {
@@ -581,22 +423,18 @@ function Draw-MenuState {
             Draw-BoxLine "  $line_content"
         }
     }
-
     Draw-BoxFooter
 }
 
 function Select-Menu {
     param([array]$heights)
-    $num_heights = $heights.Count
-    $total = $num_heights + 2
+    $total = $heights.Count + 2
     $selected = 0
     $global:MENU_DRAWN = $false
-
     [Console]::CursorVisible = $false
 
     while ($true) {
         Draw-MenuState -selected $selected -heights $heights -total $total
-
         $keyInfo = [Console]::ReadKey($true)
         $key = $keyInfo.Key
         $char = $keyInfo.KeyChar
@@ -637,7 +475,6 @@ function Draw-ProgressUI {
         [string]$filename,
         [string]$resolution
     )
-
     if (-not $percent) { $percent = "0" }
     if (-not $speed) { $speed = "0 B/s" }
     if (-not $eta) { $eta = "--:--" }
@@ -647,34 +484,24 @@ function Draw-ProgressUI {
     if (-not $resolution) { $resolution = "Best" }
 
     $percentFloat = 0.0
-    if ([double]::TryParse($percent, [ref]$percentFloat)) {
-        # Parsed successfully
-    }
+    [double]::TryParse($percent, [ref]$percentFloat) | Out-Null
     $percentInt = [int]$percentFloat
 
     if ($global:PROGRESS_DRAWN) {
         [Console]::Write("$esc[8A")
     }
     $global:PROGRESS_DRAWN = $true
-
     Draw-BoxHeader "$C_CYANDOWNLOADING MEDIA PROTOCOL$C_RESET"
-
     $cleanFn = if ($filename.Length -gt 40) { $filename.Substring(0, 37) + "..." } else { $filename }
     Draw-BoxLine " File:       $cleanFn"
     Draw-BoxLine " Res/Type:   $resolution   Speed: $speed"
-
     $filled = [int]($percentInt * 30 / 100)
     $empty = 30 - $filled
     $bar_filled = "█" * $filled
     $bar_empty = "░" * $empty
-
     $bar_color = $C_GREEN
-    if ($percentInt -lt 30) {
-        $bar_color = $C_ORANGE
-    } elseif ($percentInt -lt 70) {
-        $bar_color = $C_CYAN
-    }
-
+    if ($percentInt -lt 30) { $bar_color = $C_ORANGE }
+    elseif ($percentInt -lt 70) { $bar_color = $C_CYAN }
     Draw-BoxLine " [$bar_color$bar_filled$C_GRAY$bar_empty$C_RESET] $bar_color$percentInt%$C_RESET"
     Draw-BoxLine " Bytes info: $dl_size of $total_size   ETA: $eta"
     Draw-BoxFooter
@@ -688,11 +515,10 @@ function Show-SuccessScreen {
         [bool]$is_audio
     )
 
-    $downloadsPath = Join-Path ([Environment]::GetFolderPath("UserProfile")) "Downloads\SUPER HUMAN"
+    $downloadsPath = Join-Path (Join-Path ([Environment]::GetFolderPath("UserProfile")) "Downloads") "SUPER HUMAN"
     $ext = if ($is_audio) { "mp3" } else { "mp4" }
-    
-    $finalFile = Get-ChildItem -Path $downloadsPath -Filter "*.$ext" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    
+    $finalFile = Get-ChildItem -Path $downloadsPath -Filter "*.$ext" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+
     $f_size = "Unknown"
     $f_name = $target_title
     if ($finalFile) {
@@ -711,88 +537,63 @@ function Show-SuccessScreen {
 
     Clear-Host
     Show-HeaderBanner
-
     Draw-BoxHeader "$C_GREEN✔ DOWNLOAD COMPLETED SUCCESSFULLY$C_RESET"
     Draw-BoxLine ""
-    Draw-BoxLine "      $C_GREEN╭─────────────────────────────────╮$C_RESET"
-    Draw-BoxLine "      $C_GREEN│          DOWNLOAD COMPLETE      │$C_RESET"
-    Draw-BoxLine "      $C_GREEN│             [ ✔ ] SUCCESS       │$C_RESET"
-    Draw-BoxLine "      $C_GREEN╰─────────────────────────────────╯$C_RESET"
-    Draw-BoxLine ""
     Wrap-And-DrawBoxLines "File Name:  " $f_name
-    Draw-BoxLine "Location:   Downloads\SUPER HUMAN"
+    Draw-BoxLine "Location:   Downloads\\SUPER HUMAN"
     Draw-BoxLine "Final Size: $f_size"
     Draw-BoxLine "Resolution: $res"
     Draw-BoxLine "Time Taken: $dl_time"
     Draw-BoxFooter
-
     Show-Footer
     Write-Host ""
-    Read-Host "Press ENTER to return to Main Menu..."
+    Read-Host "Press ENTER to return to the main menu"
 }
 
 function Show-ErrorScreen {
     param([string]$err)
     Clear-Host
     Show-HeaderBanner
-
     Draw-BoxHeader "$C_RED✖ SYSTEM EXCEPTION DETECTED$C_RESET"
     Draw-BoxLine ""
-    Draw-BoxLine "      $C_RED╭─────────────────────────────────╮$C_RESET"
-    Draw-BoxLine "      $C_RED│          CRITICAL ERROR         │$C_RESET"
-    Draw-BoxLine "      $C_RED│             [ ✖ ] FAIL          │$C_RESET"
-    Draw-BoxLine "      $C_RED╰─────────────────────────────────╯$C_RESET"
-    Draw-BoxLine ""
     Wrap-And-DrawBoxLines "Error Msg:  " $err
-    Draw-BoxLine "Suggestion: Check connection, URL validity,"
-    Draw-BoxLine "            or video privacy settings."
+    Draw-BoxLine "Suggestion: Verify URL, internet connectivity," 
+    Draw-BoxLine "            or YouTube access from this machine."
     Draw-BoxFooter
-
     Show-Footer
     Write-Host ""
-    Read-Host "Press ENTER to return to Main Menu..."
+    Read-Host "Press ENTER to return to the main menu"
 }
 
-# Main Execution Guard block to ensure Cleanup runs
 try {
     if ($BuildOnly) {
-        $res = Check-Dependencies
-        if ($res) {
-            Write-Host "`n[+][Cyber-Builder] Environment verification and build completed successfully.`n"
-        } else {
-            Write-Host "`n[✖][Cyber-Builder] Environment verification and build failed.`n"
-            exit 1
+        if (Check-Dependencies) {
+            Write-Host "`n[✔] Build completed successfully. All dependencies are ready.`n"
+            exit 0
         }
-        exit 0
+        Write-Host "`n[✖] Build failed. See error details above.`n"
+        exit 1
     }
 
-    # Run startup routine
     Show-StartupAnimation
 
-    # Run dependency checker loop
     while (-not (Check-Dependencies)) {
-        Start-Sleep -Milliseconds 500
+        # If dependency installation failed, retry after the user acknowledges.
     }
 
-    # Run yt-dlp self-update checker
-    Check-For-YtdlpUpdates
-
-    # Main loop
     while ($true) {
         Clear-Host
         Show-HeaderBanner
         Draw-BoxHeader "$C_GREENINITIALIZE SECURE DOWNLINK$C_RESET"
-        Draw-BoxLine " Paste video URL below to fetch metadata."
+        Draw-BoxLine " Paste a YouTube URL below to fetch metadata."
         Draw-BoxLine " Enter '0' to exit the downloader."
         Draw-BoxFooter
         Write-Host ""
         [Console]::Write(" $C_CYAN⚡ SYSTEM-URL > $C_RESET")
-        
+
         $url = Read-Host
         if ($url) { $url = $url.Trim() }
-        
         if (-not $url) { continue }
-        
         if ($url -eq "0") {
             Clear-Host
             Show-HeaderBanner
@@ -808,159 +609,79 @@ try {
             Cleanup
             exit 0
         }
-        
         if ($url -notmatch "youtube\.com" -and $url -notmatch "youtu\.be") {
             Show-ErrorScreen "Invalid YouTube URL format."
             continue
         }
-        
+
         Clear-Host
         Show-HeaderBanner
-        
-        $ytArgs = @(
-            "--skip-download",
-            "--ffmpeg-location", $toolsDir,
-            "--print",
-            "%(title)s###YT_DELIM###%(uploader)s###YT_DELIM###%(duration_string)s###YT_DELIM###%(view_count)s###YT_DELIM###%(upload_date)s###YT_DELIM###%(resolution)s###YT_DELIM###%(thumbnail)s###YT_DELIM###%(formats.:.height)s",
-            $url
-        )
-        
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = Join-Path $toolsDir "yt-dlp.exe"
-        $psi.Arguments = Join-Arguments $ytArgs
-        $psi.UseShellExecute = $false
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
-        $psi.CreateNoWindow = $true
-        
-        $process = New-Object System.Diagnostics.Process
-        $process.StartInfo = $psi
-        $process.Start() | Out-Null
-        
-        # Read stdout/stderr asynchronously to avoid deadlocks
-        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-        $stderrTask = $process.StandardError.ReadToEndAsync()
-        
-        $spinChars = @('▖', '▘', '▝', '▗')
-        $i = 0
-        [Console]::CursorVisible = $false
-        while (-not $process.HasExited) {
-            $char = $spinChars[$i % $spinChars.Length]
-            [Console]::Write("$C_CYAN [$char] Connecting to YouTube mainframe...$C_RESET`r")
-            Start-Sleep -Milliseconds 80
-            $i++
-        }
-        $process.WaitForExit()
-        [Console]::Write(" " * 45 + "`r")
-        [Console]::CursorVisible = $true
-        
-        $stdout = $stdoutTask.Result
-        $stderr = $stderrTask.Result
-        $status = $process.ExitCode
-        
-        if ($status -ne 0 -or -not $stdout) {
-            $err_msg = ""
-            $all_out = $stdout + "`n" + $stderr
-            foreach ($line in ($all_out -split "`n")) {
-                if ($line -like "*ERROR:*") {
-                    $err_msg = $line.Substring($line.IndexOf("ERROR:")).Trim()
-                    break
-                }
-            }
-            if (-not $err_msg) {
-                $err_msg = "Failed connection or private video."
-            }
-            Show-ErrorScreen $err_msg
+        $metadata = Get-VideoMetadata -url $url
+        if (-not $metadata.Success) {
+            Show-ErrorScreen $metadata.Error
             continue
         }
-        
-        $parts = $stdout -split "###YT_DELIM###"
-        $title = $parts[0]
-        $uploader = $parts[1]
-        $duration = $parts[2]
-        $views = $parts[3]
-        $upload_date = $parts[4]
-        $resolution = $parts[5]
-        $thumbnail = $parts[6]
-        $heights_raw = $parts[7]
-        
-        $heights_cleaned = $heights_raw -replace '\[|\]| ', ''
-        $height_list = $heights_cleaned -split ',' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ } | Sort-Object -Descending -Unique
-        
-        if (-not $height_list -or $height_list.Count -eq 0) {
-            Show-ErrorScreen "No video heights/resolutions found."
+
+        $heightList = $metadata.HeightList
+        if (-not $heightList -or $heightList.Count -eq 0) {
+            Show-ErrorScreen "No downloadable video resolutions were found for this URL."
             continue
         }
-        
-        $formatted_views = $views
-        $viewsInt = 0
-        if ([int64]::TryParse($views, [ref]$viewsInt)) {
-            if ($viewsInt -ge 1000000) {
-                $formatted_views = "$([Math]::Round($viewsInt / 1000000, 1))M views"
-            } elseif ($viewsInt -ge 1000) {
-                $formatted_views = "$([Math]::Round($viewsInt / 1000, 1))k views"
-            } else {
-                $formatted_views = "$viewsInt views"
-            }
+
+        $formattedViews = $metadata.Views
+        if ($formattedViews -is [int] -or $formattedViews -is [int64]) {
+            if ($formattedViews -ge 1000000) { $formattedViews = "$([Math]::Round($formattedViews / 1000000, 1))M views" }
+            elseif ($formattedViews -ge 1000) { $formattedViews = "$([Math]::Round($formattedViews / 1000, 1))k views" }
+            else { $formattedViews = "$formattedViews views" }
         }
-        
-        $formatted_date = "Unknown"
-        if ($upload_date.Length -eq 8) {
-            $formatted_date = "$($upload_date.Substring(0,4))-$($upload_date.Substring(4,2))-$($upload_date.Substring(6,2))"
+
+        $releaseDate = "Unknown"
+        if ($metadata.UploadDate -and $metadata.UploadDate.Length -eq 8) {
+            $releaseDate = "$($metadata.UploadDate.Substring(0, 4))-$($metadata.UploadDate.Substring(4, 2))-$($metadata.UploadDate.Substring(6, 2))"
         }
-        
+
         Clear-Host
         Show-HeaderBanner
         Draw-BoxHeader "$C_CYANTARGET ACQUIRED: VIDEO METADATA$C_RESET"
-        Wrap-And-DrawBoxLines "Title:  " $title
-        Draw-BoxLine "Channel:    $uploader"
-        Draw-BoxLine "Duration:   $duration"
-        Draw-BoxLine "Views:      $formatted_views"
-        Draw-BoxLine "Released:   $formatted_date"
-        Draw-BoxLine "Source Res: $resolution"
-        
-        $clean_thumb = $thumbnail
-        if ($clean_thumb.Length -gt 48) {
-            $clean_thumb = $clean_thumb.Substring(0, 45) + "..."
-        }
-        Draw-BoxLine "Thumbnail:  $clean_thumb"
+        Wrap-And-DrawBoxLines "Title:  " $metadata.Title
+        Draw-BoxLine "Channel:    $metadata.Uploader"
+        Draw-BoxLine "Duration:   $metadata.Duration"
+        Draw-BoxLine "Views:      $formattedViews"
+        Draw-BoxLine "Released:   $releaseDate"
+        Draw-BoxLine "Source Res: $metadata.Resolution"
+
+        $cleanThumb = $metadata.Thumbnail
+        if ($cleanThumb.Length -gt 48) { $cleanThumb = $cleanThumb.Substring(0, 45) + "..." }
+        Draw-BoxLine "Thumbnail:  $cleanThumb"
         Draw-BoxFooter
         Write-Host ""
-        
-        $choice_idx = Select-Menu -heights $height_list
-        
-        $total_options = $height_list.Count + 2
-        if ($choice_idx -eq ($total_options - 1)) {
-            continue
-        }
-        
+
+        $choiceIdx = Select-Menu -heights $heightList
+        $totalOptions = $heightList.Count + 2
+        if ($choiceIdx -eq ($totalOptions - 1)) { continue }
+
         Clear-Host
         Show-HeaderBanner
-        
         $global:PROGRESS_DRAWN = $false
         $startTime = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-        
-        $downloadsPath = Join-Path ([Environment]::GetFolderPath("UserProfile")) "Downloads\SUPER HUMAN"
-        if (-not (Test-Path $downloadsPath)) {
-            New-Item -ItemType Directory -Path $downloadsPath -Force | Out-Null
-        }
-        
-        $out_template = Join-Path $downloadsPath "%(title)s.%(ext)s"
-        
-        $is_audio = $false
-        $selected_res = ""
+        $downloadsPath = Join-Path (Join-Path ([Environment]::GetFolderPath("UserProfile")) "Downloads") "SUPER HUMAN"
+        if (-not (Test-Path $downloadsPath)) { New-Item -ItemType Directory -Path $downloadsPath -Force | Out-Null }
+
+        $outTemplate = Join-Path $downloadsPath "%(title)s.%(ext)s"
+        $isAudio = $false
+        $selectedRes = ""
         $dlArgs = @(
             "--newline",
             "--ffmpeg-location", $toolsDir,
             "--progress-template",
             "PROG:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s|%(progress._total_bytes_str)s|%(progress._downloaded_bytes_str)s",
             "-o",
-            $out_template
+            $outTemplate
         )
-        
-        if ($choice_idx -eq ($total_options - 2)) {
-            $selected_res = "MP3 Audio"
-            $is_audio = $true
+
+        if ($choiceIdx -eq ($totalOptions - 2)) {
+            $selectedRes = "MP3 Audio"
+            $isAudio = $true
             $dlArgs += @(
                 "-x",
                 "--audio-format",
@@ -970,11 +691,12 @@ try {
                 $url
             )
         } else {
-            $selected_height = $height_list[$choice_idx]
-            $selected_res = "${selected_height}p"
+            $selectedHeight = $heightList[$choiceIdx]
+            $selectedRes = "${selectedHeight}p"
+            $downloadFormat = "bestvideo[height=${selectedHeight}]+bestaudio/best[height=${selectedHeight}]/best"
             $dlArgs += @(
                 "-f",
-                "bestvideo[height=${selected_height}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height=${selected_height}]+bestaudio/best[height=${selected_height}]",
+                $downloadFormat,
                 "--merge-output-format",
                 "mp4",
                 "--remux-video",
@@ -982,27 +704,26 @@ try {
                 $url
             )
         }
-        
+
         $psiDl = New-Object System.Diagnostics.ProcessStartInfo
         $psiDl.FileName = Join-Path $toolsDir "yt-dlp.exe"
-        $psiDl.Arguments = Join-Arguments $dlArgs
+        $psiDl.Arguments = ($dlArgs | ForEach-Object { if ($_ -match ' ') { '"' + $_ + '"' } else { $_ } }) -join ' '
         $psiDl.UseShellExecute = $false
         $psiDl.RedirectStandardOutput = $true
         $psiDl.RedirectStandardError = $true
         $psiDl.CreateNoWindow = $true
-        
+
         $dlProcess = New-Object System.Diagnostics.Process
         $dlProcess.StartInfo = $psiDl
         $dlProcess.Start() | Out-Null
-        
+
         $currentFile = ""
         [Console]::CursorVisible = $false
-        
         while (-not $dlProcess.StandardOutput.EndOfStream) {
             $line = $dlProcess.StandardOutput.ReadLine()
             if ($line -like "*Destination:*") {
-                $rawPath = $line -replace '.*Destination:\s*', ''
-                $currentFile = [System.IO.Path]::GetFileName($rawPath)
+                $currentFile = $line -replace '.*Destination:\s*', ''
+                $currentFile = [System.IO.Path]::GetFileName($currentFile)
             } elseif ($line -like "PROG:*") {
                 $data = $line -replace 'PROG:', ''
                 $parts = $data.Split('|')
@@ -1012,37 +733,36 @@ try {
                     $eta = $parts[2].Trim()
                     $total_size = $parts[3].Trim()
                     $dl_size = $parts[4].Trim()
-                    Draw-ProgressUI -percent $percent -speed $speed -eta $eta -total_size $total_size -dl_size $dl_size -filename $currentFile -resolution $selected_res
+                    Draw-ProgressUI -percent $percent -speed $speed -eta $eta -total_size $total_size -dl_size $dl_size -filename $currentFile -resolution $selectedRes
                 }
             } else {
-                if ($line -match "Merging" -or $line -match "Merging formats" -or $line -match "Extracting audio") {
+                if ($line -match "Merging" -or $line -match "Extracting audio") {
                     if ($global:PROGRESS_DRAWN) {
                         [Console]::Write("$esc[8A")
                     }
                     $global:PROGRESS_DRAWN = $true
                     Draw-BoxHeader "$C_PURPLEPOST-PROCESSING PROTOCOL$C_RESET"
-                    Draw-BoxLine "  $C_YELLOW⚡ Merging/Extracting audio & video via FFMPEG...$C_RESET"
-                    Draw-BoxLine "  Please wait, compiling final container file..."
-                    Draw-BoxLine ""
+                    Draw-BoxLine "  $C_YELLOW⚡ Merging/Extracting audio & video via ffmpeg...$C_RESET"
+                    Draw-BoxLine "  Please wait while the final file is prepared."
                     Draw-BoxLine ""
                     Draw-BoxFooter
                 }
             }
         }
-        
+
+        $stderrOut = $dlProcess.StandardError.ReadToEnd()
         $dlProcess.WaitForExit()
         $dl_status = $dlProcess.ExitCode
         [Console]::CursorVisible = $true
-        
+
         $endTime = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
         $durationSec = $endTime - $startTime
-        if ($durationSec -eq 0) { $durationSec = 1 }
-        $download_time = "${durationSec} seconds"
-        
+        if ($durationSec -le 0) { $durationSec = 1 }
+        $download_time = "$durationSec seconds"
+
         if ($dl_status -eq 0) {
-            Show-SuccessScreen -target_title $title -res $selected_res -dl_time $download_time -is_audio $is_audio
+            Show-SuccessScreen -target_title $metadata.Title -res $selectedRes -dl_time $download_time -is_audio $isAudio
         } else {
-            $stderrOut = $dlProcess.StandardError.ReadToEnd()
             $errDetail = "Download interrupted or returned exit status $dl_status."
             if ($stderrOut) {
                 foreach ($l in ($stderrOut -split "`n")) {
